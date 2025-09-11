@@ -1,0 +1,33 @@
+# Oracle Component Lookup - Dipendenze Python
+# File requirements.txt per l'installazione delle librerie richieste
+
+# Elaborazione dati e DataFrame
+pandas>=2.0.0
+
+# Excel - Motori di scrittura
+openpyxl>=3.1.0
+xlsxwriter>=3.1.0
+
+# Compressione 7z
+py7zr>=0.20.0
+
+# Elaborazione parallela e progresso
+tqdm>=4.65.0
+
+# Rilevamento encoding
+chardet>=5.0.0
+
+# Informazioni sistema (opzionale ma consigliato)
+psutil>=5.9.0
+
+# Creazione eseguibili (per build)
+pyinstaller>=5.10.0
+
+# Testing (per sviluppo)
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
+# Linting e formattazione (per sviluppo)
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.0.0

@@ -1,0 +1,88 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# PyInstaller
+*.spec
+build/
+dist/
+
+# Logs
+*.log
+oracle_lookup.log
+
+# Output Files (User Generated)
+Output/
+*.xlsx
+*.xls
+*.csv
+!Components.csv
+*.zip
+*.7z
+*.gz
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Test data (if contains real data)
+test_data/*.xlsx
+test_data/*.csv
+!test_data/sample_*.csv
+
+# Configuration files with secrets
+config.ini
+settings.conf
+*.key
+*.pem
