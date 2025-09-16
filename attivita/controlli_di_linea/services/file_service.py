@@ -4,16 +4,15 @@ Gestisce il caricamento, la validazione e il salvataggio dei file.
 """
 
 import pandas as pd
-from typing import List, Optional, Dict, Any, Tuple, Union
+from typing import List, Optional, Dict, Any, Tuple
 from pathlib import Path
 import os
 import gzip
-import chardet
 import logging
 from datetime import datetime
 
 from models.config import Config, FileConfig
-from utils.file_utils import detect_encoding, get_file_size_mb, is_compressed
+from utils.file_utils import detect_encoding, is_compressed
 
 
 class FileService:

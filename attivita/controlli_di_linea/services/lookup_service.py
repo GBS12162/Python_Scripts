@@ -6,11 +6,8 @@ Gestisce la ricerca parallela e l'elaborazione di grandi dataset.
 import pandas as pd
 from typing import List, Iterator, Optional, Callable, Dict, Any
 from concurrent.futures import ProcessPoolExecutor, as_completed
-import multiprocessing as mp
-from functools import partial
 import logging
 from tqdm import tqdm
-import time
 
 from models.component import Component, LookupResult, ProcessingStats
 from models.config import Config

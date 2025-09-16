@@ -8,10 +8,8 @@ from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 from tqdm import tqdm
-import time
 import sys
 import multiprocessing as mp
-from functools import partial
 
 # Costanti per i limiti di Excel
 EXCEL_MAX_ROWS_PER_SHEET = 500000   # Limite conservativo per performance (500k righe)

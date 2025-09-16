@@ -8,13 +8,9 @@ import py7zr
 from typing import List, Optional, Dict, Any, Callable
 from pathlib import Path
 import logging
-from datetime import datetime
-import shutil
 
 from models.config import Config, OutputConfig
 from utils.file_utils import get_file_size_mb, ensure_directory
-from utils.date_utils import get_current_timestamp
-from utils.progress_utils import ProgressTracker
 
 
 class CompressionService:

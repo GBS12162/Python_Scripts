@@ -5,11 +5,9 @@ Gestisce la creazione di file Excel ottimizzati con supporto per grandi dataset.
 
 import pandas as pd
 from typing import List, Dict, Any, Optional, Tuple, Iterator
-from pathlib import Path
 import os
 import logging
 from datetime import datetime
-import xlsxwriter
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils.dataframe import dataframe_to_rows
@@ -17,7 +15,6 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 from models.config import Config, OutputConfig
 from models.component import LookupResult, ProcessingStats
 from utils.file_utils import ensure_directory, get_available_disk_space
-from utils.date_utils import get_current_timestamp
 
 
 class ExcelService:

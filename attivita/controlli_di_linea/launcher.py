@@ -4,7 +4,6 @@ Questo file risolve i problemi di import con PyInstaller.
 """
 
 import sys
-import os
 from pathlib import Path
 
 def setup_paths():

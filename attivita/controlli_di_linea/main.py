@@ -14,12 +14,13 @@ from typing import List, Optional
 import traceback
 from datetime import datetime
 
-# Aggiungi il percorso corrente al PYTHONPATH
+# Aggiungi il percorso del progetto al PYTHONPATH
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(Path(__file__).parent))
 
 # Import dei moduli dell'applicazione
 from models.config import Config, FileConfig, OutputConfig
-from models.component import ProcessingStats
 from services.component_service import ComponentService
 from services.lookup_service import LookupService
 from services.file_service import FileService

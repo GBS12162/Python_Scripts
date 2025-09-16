@@ -3,7 +3,7 @@ Modello per i componenti Oracle e i risultati della ricerca.
 """
 
 from dataclasses import dataclass
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 from datetime import datetime
 import pandas as pd
 

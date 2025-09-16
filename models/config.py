@@ -3,8 +3,7 @@ Configurazioni per l'applicazione Oracle Component Lookup.
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, Any, List, Optional
-from pathlib import Path
+from typing import Dict, Any, Optional
 import os
 
 

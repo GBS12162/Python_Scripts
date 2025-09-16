@@ -4,7 +4,6 @@ Utilizza PyInstaller per generare un file .exe standalone.
 """
 
 import os
-import sys
 import subprocess
 from pathlib import Path
 import shutil

@@ -2,7 +2,7 @@
 Gestione del menu principale per l'applicazione Oracle Component Lookup.
 """
 
-from typing import List, Callable, Optional
+from typing import List, Callable
 
 
 class MenuManager:

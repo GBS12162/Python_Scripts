@@ -19,7 +19,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 # Import dei moduli dell'applicazione
 from models.config import Config, FileConfig, OutputConfig
-from models.component import ProcessingStats
 from services.component_service import ComponentService
 from services.lookup_service import LookupService
 from services.file_service import FileService

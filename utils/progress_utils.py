@@ -2,8 +2,7 @@
 Utility per il tracking del progresso delle operazioni.
 """
 
-import time
-from typing import Optional, Callable, Any
+from typing import Optional, Callable
 from datetime import datetime, timedelta
 from dataclasses import dataclass
 

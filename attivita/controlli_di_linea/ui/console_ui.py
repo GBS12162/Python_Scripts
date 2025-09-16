@@ -6,11 +6,10 @@ Gestisce l'interazione con l'utente tramite console.
 import os
 import sys
 from typing import List, Optional, Dict, Any, Callable
-from pathlib import Path
 import logging
 
-from models.config import Config, FileConfig, OutputConfig
-from utils.progress_utils import ProgressTracker, ProgressInfo
+from models.config import Config
+from utils.progress_utils import ProgressTracker
 from utils.date_utils import format_duration
 
 
