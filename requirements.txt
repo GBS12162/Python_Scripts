@@ -1,15 +1,20 @@
-# Oracle Component Lookup - Dipendenze Python
-# File requirements.txt per l'installazione delle librerie richieste
+# Python Scripts Repository - Dipendenze Comuni
+# File requirements.txt principale per tutte le attività
+
+# === DIPENDENZE COMUNI BASE ===
 
 # Elaborazione dati e DataFrame
 pandas>=2.0.0
 
-# Excel - Motori di scrittura
+# Excel - Lettura e scrittura
 openpyxl>=3.1.0
 xlsxwriter>=3.1.0
 
-# Compressione 7z
-py7zr>=0.20.0
+# Web requests e API
+requests>=2.31.0
+
+# Gestione credenziali sicure
+keyring>=24.0.0
 
 # Elaborazione parallela e progresso
 tqdm>=4.65.0
@@ -17,17 +22,29 @@ tqdm>=4.65.0
 # Rilevamento encoding
 chardet>=5.0.0
 
-# Informazioni sistema (opzionale ma consigliato)
+# Informazioni sistema
 psutil>=5.9.0
 
-# Creazione eseguibili (per build)
-pyinstaller>=5.10.0
+# Utilità date e tempo
+python-dateutil>=2.8.0
 
-# Testing (per sviluppo)
+# === DIPENDENZE SVILUPPO ===
+
+# Testing
 pytest>=7.0.0
 pytest-cov>=4.0.0
 
-# Linting e formattazione (per sviluppo)
+# Linting e formattazione
 black>=23.0.0
 flake8>=6.0.0
-mypy>=1.0.0
+
+# Logging avanzato
+colorlog>=6.0.0
+
+# Build e distribuzione
+pyinstaller>=5.10.0
+
+# === NOTE ===
+# Le dipendenze specifiche per ogni attività vanno in:
+# - attivita/controlli_di_linea/requirements.txt
+# - attivita/transaction_reporting/requirements.txt

@@ -1,0 +1,17 @@
+# Transaction Reporting (CON-412) - Dipendenze Specifiche
+# Da installare DOPO le dipendenze comuni del repository
+
+# === DIPENDENZE SPECIFICHE ===
+
+# Database Oracle TNS
+oracledb>=1.4.0
+
+# Validazione e typing
+mypy>=1.0.0
+
+# === INSTALLAZIONE ===
+# 1. Installare prima: pip install -r ../../requirements.txt
+# 2. Poi installare: pip install -r requirements.txt
+#
+# Oppure tutto insieme:
+# pip install -r ../../requirements.txt -r requirements.txt

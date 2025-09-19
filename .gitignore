@@ -86,3 +86,10 @@ config.ini
 settings.conf
 *.key
 *.pem
+
+# CON-412 Transaction Reporting
+attivita/transaction_reporting/downloads/
+attivita/transaction_reporting/output/
+attivita/transaction_reporting/data/
+attivita/transaction_reporting/logs/
+logs/
