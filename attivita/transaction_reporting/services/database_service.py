@@ -22,7 +22,7 @@ class DatabaseService:
         self.tns_alias = tns_alias
         self.logger = logging.getLogger(__name__)
         self._setup_tns_environment()
-        self.fallback_hosts = ["localhost", "pporafin", "pporafin.bsella.it"]
+        self.fallback_hosts = ["172.17.23.61", "172.17.23.62", "172.17.23.63"]
         self.successful_host = None
     
     def _setup_tns_environment(self):
@@ -51,12 +51,27 @@ class DatabaseService:
             }
         
         try:
-            from .credentials_manager import get_database_credentials
-            credentials = get_database_credentials("pporafin")
-        except ImportError:
-            # Import assoluto per esecuzione standalone
-            from credentials_manager import get_database_credentials
-            credentials = get_database_credentials("pporafin")
+            # Import dinamico del credentials manager
+            import importlib.util
+            import sys
+            from pathlib import Path
+            
+            # Percorso al modulo credentials_manager
+            cred_path = Path(__file__).parent / "credentials_manager.py"
+            
+            # Carica il modulo
+            spec = importlib.util.spec_from_file_location("credentials_manager", cred_path)
+            cred_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(cred_module)
+            
+            # Ottieni le credenziali
+            credentials = cred_module.get_database_credentials("pporafin")
+        except Exception as e:
+            self.logger.error(f"Errore caricamento credentials manager: {e}")
+            return {
+                "success": False,
+                "error": f"Impossibile caricare credentials manager: {e}"
+            }
         
         if not credentials:
             return {
@@ -89,7 +104,7 @@ class DatabaseService:
         # Test connessioni dirette
         for host in self.fallback_hosts:
             try:
-                dsn = f"{host}:1521/pporafin"
+                dsn = f"{host}:1521/OTH_ORAFIN.bsella.it"
                 connection = oracledb.connect(
                     user=username,
                     password=password,
@@ -121,12 +136,23 @@ class DatabaseService:
             raise Exception("Modulo oracledb non disponibile")
         
         try:
-            from .credentials_manager import get_database_credentials
-            credentials = get_database_credentials("pporafin")
-        except ImportError:
-            # Import assoluto per esecuzione standalone
-            from credentials_manager import get_database_credentials
-            credentials = get_database_credentials("pporafin")
+            # Import dinamico del credentials manager
+            import importlib.util
+            from pathlib import Path
+            
+            # Percorso al modulo credentials_manager
+            cred_path = Path(__file__).parent / "credentials_manager.py"
+            
+            # Carica il modulo
+            spec = importlib.util.spec_from_file_location("credentials_manager", cred_path)
+            cred_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(cred_module)
+            
+            # Ottieni le credenziali
+            credentials = cred_module.get_database_credentials("pporafin")
+        except Exception as e:
+            self.logger.error(f"Errore caricamento credentials manager: {e}")
+            raise Exception(f"Impossibile caricare credentials manager: {e}")
         
         if not credentials:
             raise Exception("Credenziali Oracle non configurate")
@@ -157,7 +183,7 @@ class DatabaseService:
             
             for host in hosts_to_try:
                 try:
-                    dsn = f"{host}:1521/pporafin"
+                    dsn = f"{host}:1521/OTH_ORAFIN.bsella.it"
                     connection = oracledb.connect(
                         user=username,
                         password=password,

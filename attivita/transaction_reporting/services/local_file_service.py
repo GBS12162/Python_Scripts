@@ -67,7 +67,7 @@ class LocalFileService:
             # Test di lettura
             try:
                 list(self.base_path.iterdir())
-                self.logger.info(f"✅ Accesso verificato: {self.base_path}")
+                self.logger.info(f"Accesso verificato: {self.base_path}")
                 return True
             except PermissionError:
                 self.logger.error(f"Permessi insufficienti per: {self.base_path}")
@@ -98,13 +98,13 @@ class LocalFileService:
             # Cerca il file esatto
             exact_match = self.base_path / file_name
             if exact_match.exists() and exact_match.is_file():
-                self.logger.info(f"✅ File trovato: {exact_match}")
+                self.logger.info(f"File trovato: {exact_match}")
                 return str(exact_match)
             
             # Cerca con pattern simili (case-insensitive)
             for file_path in self.base_path.glob('*'):
                 if file_path.is_file() and file_path.name.lower() == file_name.lower():
-                    self.logger.info(f"✅ File trovato (case-insensitive): {file_path}")
+                    self.logger.info(f"File trovato: {file_path}")
                     return str(file_path)
             
             # Se abilitato, cerca nelle sottodirectory
@@ -112,13 +112,13 @@ class LocalFileService:
                 self.logger.info("Cerco nelle sottodirectory...")
                 for file_path in self.base_path.rglob(file_name):
                     if file_path.is_file():
-                        self.logger.info(f"✅ File trovato in sottodirectory: {file_path}")
+                        self.logger.info(f"File trovato: {file_path}")
                         return str(file_path)
                         
                 # Cerca con pattern case-insensitive nelle sottodirectory
                 for file_path in self.base_path.rglob('*'):
                     if file_path.is_file() and file_path.name.lower() == file_name.lower():
-                        self.logger.info(f"✅ File trovato in sottodirectory (case-insensitive): {file_path}")
+                        self.logger.info(f"File trovato: {file_path}")
                         return str(file_path)
             
             self.logger.warning(f"File non trovato: {file_name}")
@@ -155,7 +155,7 @@ class LocalFileService:
             
             # Verifica che la copia sia riuscita
             if destination.exists() and destination.stat().st_size > 0:
-                self.logger.info(f"✅ File copiato: {source} → {destination}")
+                self.logger.info(f"File copiato: {source} -> {destination}")
                 return True
             else:
                 self.logger.error("File copiato ma risulta vuoto o non trovato")
@@ -264,12 +264,12 @@ class LocalFileService:
                 for file_path in found_files:
                     file_name_upper = file_path.name.upper()
                     if month_upper in file_name_upper:
-                        self.logger.info(f"✅ File CON-412 trovato per {month}: {file_path}")
+                        self.logger.info(f"File CON-412 trovato per {month}: {file_path}")
                         return str(file_path)
             
             # Se non trovato per mese specifico o mese non specificato, prendi il primo
             selected_file = found_files[0]
-            self.logger.info(f"✅ File CON-412 trovato: {selected_file}")
+            self.logger.info(f"File CON-412 trovato: {selected_file}")
             
             if len(found_files) > 1:
                 self.logger.info(f"Trovati {len(found_files)} file CON-412, usando: {selected_file.name}")

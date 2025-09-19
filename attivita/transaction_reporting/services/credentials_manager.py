@@ -1,21 +1,31 @@
 """
 Credentials Manager - Gestione sicura credenziali database
-Sistema per acquisire e gestire credenziali utente in modo sicuro
+Sistema per acquisire e gestire credenziali utente in modo sicuro con salvataggio persistente
 """
 
 import getpass
 import logging
-from typing import Tuple, Optional
+import json
+import os
+from typing import Tuple, Optional, Dict
 from pathlib import Path
 
 
 class CredentialsManager:
-    """Gestore sicuro per credenziali database"""
+    """Gestore sicuro per credenziali database con salvataggio persistente"""
     
     def __init__(self):
         """Inizializza il gestore credenziali"""
         self.logger = self._setup_logging()
         self._cached_credentials = {}
+        
+        # Setup directory per credenziali persistenti
+        self.config_dir = Path(__file__).parent.parent / "config"
+        self.config_dir.mkdir(exist_ok=True)
+        self.credentials_file = self.config_dir / "saved_credentials.json"
+        
+        # Carica credenziali salvate all'avvio
+        self._load_saved_credentials()
     
     def _setup_logging(self):
         """Configura il sistema di logging"""
@@ -27,6 +37,55 @@ class CredentialsManager:
             logger.addHandler(handler)
             logger.setLevel(logging.INFO)
         return logger
+    
+    def _load_saved_credentials(self):
+        """Carica credenziali salvate da file"""
+        try:
+            if self.credentials_file.exists():
+                with open(self.credentials_file, 'r') as f:
+                    saved_data = json.load(f)
+                    self._cached_credentials.update(saved_data)
+                self.logger.info("Credenziali salvate caricate")
+        except Exception as e:
+            self.logger.warning(f"Errore caricamento credenziali salvate: {e}")
+    
+    def _save_credentials(self, service_name: str, username: str, password: str):
+        """Salva credenziali su file (solo username per sicurezza)"""
+        try:
+            # Salva solo username, non la password per sicurezza
+            saved_data = {}
+            if self.credentials_file.exists():
+                with open(self.credentials_file, 'r') as f:
+                    saved_data = json.load(f)
+            
+            saved_data[service_name] = {
+                'username': username,
+                'saved_at': self._get_timestamp()
+            }
+            
+            with open(self.credentials_file, 'w') as f:
+                json.dump(saved_data, f, indent=2)
+                
+            self.logger.info(f"Username salvato per {service_name}")
+        except Exception as e:
+            self.logger.warning(f"Errore salvataggio credenziali: {e}")
+    
+    def _get_timestamp(self):
+        """Ottiene timestamp corrente"""
+        from datetime import datetime
+        return datetime.now().isoformat()
+    
+    def _get_saved_username(self, service_name: str) -> Optional[str]:
+        """Ottiene username salvato per un servizio"""
+        try:
+            if self.credentials_file.exists():
+                with open(self.credentials_file, 'r') as f:
+                    saved_data = json.load(f)
+                    if service_name in saved_data:
+                        return saved_data[service_name].get('username')
+        except Exception:
+            pass
+        return None
     
     def get_credentials(self, service_name: str, force_new: bool = False) -> Tuple[str, str]:
         """
@@ -41,16 +100,21 @@ class CredentialsManager:
         """
         # Controlla cache se non forzato
         if not force_new and service_name in self._cached_credentials:
-            self.logger.debug(f"Utilizzo credenziali cached per {service_name}")
-            return self._cached_credentials[service_name]
+            cached = self._cached_credentials[service_name]
+            if isinstance(cached, tuple) and len(cached) == 2:
+                self.logger.debug(f"Utilizzo credenziali cached per {service_name}")
+                return cached
         
         print(f"\n🔐 AUTENTICAZIONE DATABASE")
         print(f"Servizio: {service_name.upper()}")
         print("=" * 40)
         
+        # Controlla se c'è un username salvato
+        saved_username = self._get_saved_username(service_name)
+        
         try:
-            # Richiede username
-            username = self._get_username()
+            # Richiede username (con default se salvato)
+            username = self._get_username(saved_username)
             
             # Richiede password
             password = self._get_password()
@@ -61,6 +125,9 @@ class CredentialsManager:
             # Memorizza in cache per la sessione
             credentials = (username, password)
             self._cached_credentials[service_name] = credentials
+            
+            # Salva username per prossime volte (non la password)
+            self._save_credentials(service_name, username, password)
             
             print("✅ Credenziali acquisite e memorizzate")
             self.logger.info(f"Credenziali acquisite per {service_name} (utente: {username})")
@@ -74,16 +141,26 @@ class CredentialsManager:
             self.logger.error(f"Errore acquisizione credenziali: {str(e)}")
             raise
     
-    def _get_username(self) -> str:
+    def _get_username(self, default_username: Optional[str] = None) -> str:
         """
         Acquisisce username con validazione
         
+        Args:
+            default_username: Username di default se disponibile
+            
         Returns:
             Username validato
         """
         while True:
             try:
-                username = input("👤 Username: ").strip()
+                if default_username:
+                    prompt = f"👤 Username [{default_username}]: "
+                    username = input(prompt).strip()
+                    if not username:
+                        username = default_username
+                        print(f"✅ Utilizzo username salvato: {username}")
+                else:
+                    username = input("👤 Username: ").strip()
                 
                 if not username:
                     print("⚠️ Username non può essere vuoto")

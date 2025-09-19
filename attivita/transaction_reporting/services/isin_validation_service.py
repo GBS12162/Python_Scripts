@@ -5,7 +5,7 @@ Implementa il controllo 1: ISIN non censito tramite API esterna.
 
 import logging
 import requests
-from typing import Dict, List, Optional, Set, Any
+from typing import Dict, List, Optional, Set, Any, Tuple
 from datetime import datetime
 import time
 
@@ -27,6 +27,7 @@ class ISINValidationService:
         
         # Cache per evitare richieste duplicate
         self._isin_cache: Dict[str, bool] = {}  # ISIN -> è_censito
+        self._esma_data_cache: Dict[str, Dict] = {}  # ISIN -> dati completi ESMA
         self._cache_timestamp = datetime.now()
         self._cache_ttl_hours = 24  # Cache valida per 24 ore
         
@@ -91,7 +92,6 @@ class ISINValidationService:
         try:
             # Controlla cache
             if self._is_cache_valid() and isin in self._isin_cache:
-                self.logger.debug(f"ISIN {isin} trovato in cache: {self._isin_cache[isin]}")
                 return self._isin_cache[isin]
             
             # Rate limiting
@@ -99,17 +99,21 @@ class ISINValidationService:
             
             # Effettua richiesta API
             response = self._make_api_request(isin)
-            is_valid = self._parse_api_response(response, isin)
+            is_valid, esma_data = self._parse_api_response_with_data(response, isin)
             
             # Aggiorna cache
             self._isin_cache[isin] = is_valid
+            self._esma_data_cache[isin] = esma_data
             
-            self.logger.debug(f"ISIN {isin} validato via API: {is_valid}")
             return is_valid
             
         except Exception as e:
-            self.logger.error(f"Errore nella validazione ISIN {isin}: {e}")
-            # In caso di errore, assumiamo che l'ISIN sia valido (approccio conservativo)
+            # Gestione degli errori in modo conservativo
+            if "JSON" in str(e) or "html" in str(e).lower():
+                return False  # NON censito se API restituisce HTML
+            if "parsing" in str(e).lower():
+                return False  # NON censito se parsing fallisce
+            # In caso di altri errori, assumiamo che l'ISIN sia valido (approccio conservativo)
             return True
     
     def apply_validation_results_to_groups(
@@ -128,6 +132,8 @@ class ISINValidationService:
             for group in isin_groups:
                 is_censito = validation_results.get(group.isin, True)  # Default: assume valido
                 
+                self.logger.info(f"ISIN {group.isin}: validation_result={is_censito}")
+                
                 # Se ISIN NON è censito, metti "X" nel controllo 1
                 if not is_censito:
                     group.controllo_1 = "X"
@@ -136,7 +142,7 @@ class ISINValidationService:
                     # Se è censito, lascia vuoto (o mantieni valore esistente se diverso da X)
                     if group.controllo_1 == "X":
                         group.controllo_1 = ""
-                    self.logger.debug(f"ISIN {group.isin}: censito correttamente")
+                    self.logger.info(f"ISIN {group.isin}: censito correttamente")
             
             self.logger.info("Risultati validazione applicati ai gruppi ISIN")
             
@@ -169,7 +175,7 @@ class ISINValidationService:
     def _make_api_request(self, isin: str) -> requests.Response:
         """Effettua la richiesta API ESMA per un ISIN."""
         try:
-            # Payload specifico per API ESMA
+            # Payload corretto per API ESMA (formato completo richiesto)
             payload = {
                 "core": "esma_registers_firds",
                 "pagingSize": "10",
@@ -193,13 +199,12 @@ class ISINValidationService:
                 "wt": "json"
             }
             
-            self.logger.debug(f"Richiesta ESMA per ISIN {isin}")
-            
             response = self.session.post(
                 self.api_url, 
                 json=payload,
                 timeout=30
             )
+            
             response.raise_for_status()
             
             return response
@@ -232,12 +237,6 @@ class ISINValidationService:
                             docs = response_data["docs"]
                             # Se ci sono documenti, l'ISIN è censito
                             is_found = len(docs) > 0
-                            
-                            if is_found:
-                                self.logger.debug(f"ISIN {isin} trovato in ESMA con {len(docs)} risultati")
-                            else:
-                                self.logger.debug(f"ISIN {isin} NON trovato in ESMA")
-                            
                             return is_found
                         
                         elif "numFound" in response_data:
@@ -292,6 +291,17 @@ class ISINValidationService:
                 result.controlli_passed += 1
                 result.controlli_details["ISIN_NON_CENSITO"] = ""
             
+            # Controllo 2: Trading Venue vs MERCATO (se disponibile)
+            if isinstance(group, dict) and group.get('mercato'):
+                venue_match = self.check_trading_venue(group['isin'], group['mercato'])
+                if not venue_match:
+                    result.controlli_failed += 1
+                    result.controlli_details["MIC_CODE_NON_PRESENTE"] = "X"
+                    result.business_rule_violations.append("MIC code non presente per quel mercato - Trading venue ESMA non trovato")
+                else:
+                    result.controlli_passed += 1
+                    result.controlli_details["MIC_CODE_NON_PRESENTE"] = ""
+            
             # Aggiungi raccomandazioni se necessario
             if result.controlli_failed > 0:
                 result.recommendations.append("Verificare codice ISIN nell'anagrafica strumenti")
@@ -338,8 +348,170 @@ class ISINValidationService:
     def clear_cache(self):
         """Pulisce la cache ISIN."""
         self._isin_cache.clear()
+        self._esma_data_cache.clear()
         self._cache_timestamp = datetime.now()
         self.logger.info("Cache ISIN pulita")
+    
+    def get_esma_data(self, isin: str) -> Optional[Dict]:
+        """Ottiene i dati ESMA completi per un ISIN."""
+        return self._esma_data_cache.get(isin)
+    
+    def check_trading_venue(self, isin: str, mercato_value: str) -> bool:
+        """
+        Controllo 2: Verifica se almeno una riga ESMA ha il Trading Venue corrispondente al MERCATO.
+        
+        Args:
+            isin: Codice ISIN
+            mercato_value: Valore della colonna MERCATO (formato: "CODICE(DESCRIZIONE)")
+            
+        Returns:
+            True se almeno una riga ESMA ha il trading venue corrispondente, False altrimenti
+        """
+        try:
+            if not mercato_value:
+                self.logger.debug(f"MERCATO value vuoto per ISIN {isin}")
+                return False
+            
+            # Eccezione speciale: se MERCATO contiene "XOFF", sempre valido
+            if "XOFF" in mercato_value.upper():
+                self.logger.debug(f"MERCATO contiene XOFF per ISIN {isin}: {mercato_value} - sempre valido")
+                return True
+            
+            # Estrae il codice trading venue dal MERCATO (es: "MTAA(MTA)" -> "MTAA")
+            mercato_code = mercato_value.split('(')[0].strip() if '(' in mercato_value else mercato_value.strip()
+            
+            if not mercato_code:
+                self.logger.debug(f"Impossibile estrarre codice MERCATO da '{mercato_value}' per ISIN {isin}")
+                return False
+            
+            # Verifica se abbiamo già i dati ESMA in cache
+            if isin not in self._esma_data_cache:
+                # Chiama l'API per ottenere i dati completi
+                is_valid = self.check_single_isin(isin)
+                if not is_valid or isin not in self._esma_data_cache:
+                    self.logger.debug(f"Nessun dato ESMA disponibile per ISIN {isin}")
+                    return False
+            
+            esma_data = self._esma_data_cache[isin]
+            
+            # Ottieni tutti i trading venues da ESMA
+            trading_venues = esma_data.get('trading_venues', [])
+            
+            if not trading_venues:
+                self.logger.debug(f"Nessun trading venue trovato nei dati ESMA per ISIN {isin}")
+                return False
+            
+            # Verifica se almeno uno dei trading venues corrisponde al MERCATO
+            mercato_code_upper = mercato_code.upper()
+            
+            for venue in trading_venues:
+                venue_upper = str(venue).upper()
+                
+                # Controllo diretto
+                if venue_upper == mercato_code_upper:
+                    self.logger.debug(f"Trading venue match diretto per ISIN {isin}: {mercato_code} = {venue}")
+                    return True
+                
+                # Controllo se il venue contiene il codice MERCATO
+                if mercato_code_upper in venue_upper:
+                    self.logger.debug(f"Trading venue match parziale per ISIN {isin}: {mercato_code} in {venue}")
+                    return True
+            
+            # Nessun match trovato
+            self.logger.debug(f"Trading venue mismatch per ISIN {isin}: {mercato_code} non trovato in {trading_venues}")
+            return False
+            
+        except Exception as e:
+            self.logger.error(f"Errore nel controllo trading venue per ISIN {isin}: {e}")
+            return False
+    
+    def _parse_api_response_with_data(self, response: requests.Response, isin: str) -> Tuple[bool, Dict]:
+        """
+        Parsa la risposta dell'API ESMA e restituisce validità + dati completi.
+        """
+        try:
+            if response.status_code == 200:
+                # Controlla se la risposta è HTML invece di JSON
+                content_type = response.headers.get('content-type', '').lower()
+                
+                if 'html' in content_type:
+                    # Controlla se è un errore generale dell'applicazione ESMA
+                    if 'General application error' in response.text:
+                        self.logger.error(f"API ESMA ERROR - General application error per ISIN {isin}")
+                        self.logger.error(f"URL richiesta: {response.url}")
+                        self.logger.error(f"Status code: {response.status_code}")
+                        self.logger.error(f"Response HTML (primi 500 char): {response.text[:500]}...")
+                        self.logger.warning(f"API ESMA non disponibile per ISIN {isin} - assumo CENSITO (conservativo)")
+                        return True, {}  # Censito per sicurezza
+                    else:
+                        self.logger.warning(f"API ESMA ha restituito HTML per ISIN {isin} - probabilmente NON censito")
+                        return False, {}  # NON censito
+                
+                data = response.json()
+                
+                if isinstance(data, dict) and "response" in data:
+                    response_data = data["response"]
+                    num_found = response_data.get("numFound", 0)
+                    docs = response_data.get("docs", [])
+                    
+                    is_found = num_found > 0 and len(docs) > 0
+                    
+                    # Logging dettagliato per il debug
+                    self.logger.info(f"ISIN {isin}: API ESMA response - numFound={num_found}, docs_length={len(docs)}")
+                    if num_found == 0:
+                        self.logger.info(f"ISIN {isin}: NON CENSITO su ESMA (numFound=0) - riceverà X")
+                    else:
+                        self.logger.info(f"ISIN {isin}: CENSITO su ESMA (numFound={num_found}) - nessuna X")
+                    
+                    self.logger.debug(f"ISIN {isin}: numFound={num_found}, docs={len(docs)}, is_found={is_found}")
+                    
+                    # Estrai dati da TUTTI i documenti
+                    esma_data = {
+                        'all_docs': docs,  # Conserva tutti i documenti
+                        'doc_count': len(docs),
+                        'num_found': num_found,
+                        'trading_venues': []  # Lista di tutti i trading venues
+                    }
+                    
+                    # Estrai tutti i trading venues da tutti i documenti
+                    for doc in docs:
+                        # Possibili campi per trading venue
+                        venue_fields = [
+                            'full_name_of_the_trading_venue',
+                            'trading_venue',
+                            'trading_venue_of_the_product',
+                            'venue_of_the_product',
+                            'mic_code_of_the_most_relevant_market'
+                        ]
+                        
+                        for field in venue_fields:
+                            if field in doc and doc[field]:
+                                venue_value = str(doc[field]).strip()
+                                if venue_value and venue_value not in esma_data['trading_venues']:
+                                    esma_data['trading_venues'].append(venue_value)
+                    
+                    # Aggiungi anche i dati del primo documento per compatibilità
+                    if docs:
+                        doc = docs[0]
+                        esma_data.update({
+                            'trading_venue': doc.get('full_name_of_the_trading_venue'),
+                            'instrument_name': doc.get('instrument_name'),
+                            'cfii': doc.get('cfii'),
+                            'notional_currency': doc.get('notional_currency')
+                        })
+                    
+                    return is_found, esma_data
+                        
+            return False, {}
+            
+        except Exception as e:
+            self.logger.error(f"Errore parsing risposta ESMA per {isin}: {e}")
+            # Se errore di parsing JSON, probabilmente ISIN non censito (API restituisce HTML)
+            if "JSON" in str(e) or "Expecting value" in str(e):
+                self.logger.warning(f"Errore JSON per ISIN {isin} - probabilmente NON censito")
+                return False, {}
+            # Per altri errori, approccio conservativo
+            return True, {}
     
     def get_cache_stats(self) -> Dict[str, Any]:
         """Ottiene statistiche sulla cache."""

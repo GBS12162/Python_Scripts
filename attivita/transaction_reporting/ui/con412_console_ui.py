@@ -3,8 +3,15 @@ Interfaccia utente console per Transaction Reporting CON-412 - Rejecting Mensile
 """
 
 import logging
+import sys
+import os
 from typing import Optional, List
 from pathlib import Path
+
+# Aggiungi la root del repository al path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+# Aggiungi la directory del progetto transaction_reporting al path  
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from models.transaction_reporting import ProcessingConfig, SharePointConfig, QualityControlResult
 from services.sharepoint_service import SharePointService
