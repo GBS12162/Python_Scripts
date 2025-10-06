@@ -7,6 +7,7 @@ import getpass
 import logging
 import json
 import os
+import sys
 from typing import Tuple, Optional, Dict
 from pathlib import Path
 
@@ -109,6 +110,12 @@ class CredentialsManager:
         print(f"Servizio: {service_name.upper()}")
         print("=" * 40)
         
+        # SUGGERIMENTI per username comune
+        print("💡 SUGGERIMENTI CREDENZIALI:")
+        print("   - Username tipico: CONSULTA_IT_RUN_INVESTIMENTI")
+        print("   - Se hai dubbi, verifica con l'amministratore DB")
+        print("")
+        
         # Controlla se c'è un username salvato
         saved_username = self._get_saved_username(service_name)
         
@@ -130,6 +137,8 @@ class CredentialsManager:
             self._save_credentials(service_name, username, password)
             
             print("✅ Credenziali acquisite e memorizzate")
+            print(f"🔍 DEBUG: Username = '{username}' (lunghezza: {len(username)})")
+            print(f"🔍 DEBUG: Password lunghezza = {len(password)}")
             self.logger.info(f"Credenziali acquisite per {service_name} (utente: {username})")
             
             return credentials
@@ -153,14 +162,32 @@ class CredentialsManager:
         """
         while True:
             try:
+                # Verifica se siamo in un eseguibile PyInstaller
+                is_exe = getattr(sys, 'frozen', False)
+                
                 if default_username:
                     prompt = f"👤 Username [{default_username}]: "
-                    username = input(prompt).strip()
+                    if is_exe:
+                        # Fallback per eseguibili PyInstaller
+                        import sys
+                        sys.stdout.write(prompt)
+                        sys.stdout.flush()
+                        username = sys.stdin.readline().strip()
+                    else:
+                        username = input(prompt).strip()
+                    
                     if not username:
                         username = default_username
                         print(f"✅ Utilizzo username salvato: {username}")
                 else:
-                    username = input("👤 Username: ").strip()
+                    if is_exe:
+                        # Fallback per eseguibili PyInstaller
+                        import sys
+                        sys.stdout.write("👤 Username: ")
+                        sys.stdout.flush()
+                        username = sys.stdin.readline().strip()
+                    else:
+                        username = input("👤 Username: ").strip()
                 
                 if not username:
                     print("⚠️ Username non può essere vuoto")
@@ -192,7 +219,18 @@ class CredentialsManager:
         """
         while True:
             try:
-                password = getpass.getpass("🔑 Password: ")
+                # Verifica se siamo in un eseguibile PyInstaller
+                is_exe = getattr(sys, 'frozen', False)
+                
+                if is_exe:
+                    # Fallback per eseguibili PyInstaller
+                    import sys
+                    sys.stdout.write("🔑 Password: ")
+                    sys.stdout.flush()
+                    password = sys.stdin.readline().strip()
+                    print("✅ Password inserita")
+                else:
+                    password = getpass.getpass("🔑 Password: ")
                 
                 if not password:
                     print("⚠️ Password non può essere vuota")

@@ -11,8 +11,13 @@ from pathlib import Path
 try:
     import oracledb
     ORACLEDB_AVAILABLE = True
-except ImportError:
+    print(f"✅ DEBUG STARTUP: Modulo oracledb importato con successo - Versione: {getattr(oracledb, '__version__', 'Sconosciuta')}")
+except ImportError as e:
     ORACLEDB_AVAILABLE = False
+    print(f"❌ DEBUG STARTUP: Errore import oracledb: {e}")
+except Exception as e:
+    ORACLEDB_AVAILABLE = False
+    print(f"❌ DEBUG STARTUP: Errore generico oracledb: {e}")
 
 
 class DatabaseService:
@@ -22,55 +27,137 @@ class DatabaseService:
         self.tns_alias = tns_alias
         self.logger = logging.getLogger(__name__)
         self._setup_tns_environment()
-        self.fallback_hosts = ["172.17.23.61", "172.17.23.62", "172.17.23.63"]
+        
+        # Host di fallback appropriati per l'ambiente
+        if tns_alias == "pporafin":
+            # Pre-produzione
+            self.fallback_hosts = [
+                "orafinprex-scan.sg.gbs.pro", 
+                "orafinprey-scan.sg.gbs.pro", 
+                "orafinprez-scan.sg.gbs.pro"
+            ]
+        elif tns_alias == "orafin":
+            # Produzione  
+            self.fallback_hosts = [
+                "orafinpro-scan.sg.gbs.pro",
+                "orafinbc-scan.sg.gbs.pro", 
+                "orafingdr-scan.sg.gbs.pro"
+            ]
+        else:
+            # Default per altri ambienti
+            self.fallback_hosts = ["172.17.23.61", "172.17.23.62", "172.17.23.63"]
+            
         self.successful_host = None
     
     def _setup_tns_environment(self):
-        """Configura l'ambiente TNS con file locale"""
-        try:
-            project_root = Path(__file__).parent.parent
-            oracle_config_dir = project_root / "oracle_config"
-            tnsnames_path = oracle_config_dir / "tnsnames.ora"
-            
-            if tnsnames_path.exists():
-                os.environ["TNS_ADMIN"] = str(oracle_config_dir)
-                self.logger.info(f"TNS_ADMIN configurato: {oracle_config_dir}")
+        """Configura l'ambiente TNS Oracle con controllo prioritario del progetto"""
+        # Percorso alla configurazione TNS locale al progetto
+        project_root = Path(__file__).parent.parent
+        tns_config_path = project_root / "oracle_config"
+        
+        # Salva il TNS_ADMIN originale per debug
+        original_tns = os.environ.get('TNS_ADMIN')
+        
+        if tns_config_path.exists():
+            tns_path = str(tns_config_path.absolute())
+            os.environ['TNS_ADMIN'] = tns_path
+            self.logger.info(f"TNS_ADMIN configurato: {tns_path}")
+            if original_tns and original_tns != tns_path:
+                self.logger.info(f"TNS_ADMIN precedente sovrascitto: {original_tns}")
+        else:
+            self.logger.warning(f"Configurazione TNS non trovata: {tns_config_path}")
+            if original_tns:
+                self.logger.warning(f"Utilizzo configurazione TNS di sistema: {original_tns}")
             else:
-                self.logger.warning(f"File tnsnames.ora non trovato: {tnsnames_path}")
-                
-        except Exception as e:
-            self.logger.error(f"Errore configurazione TNS: {e}")
+                self.logger.error("Nessuna configurazione TNS disponibile!")
     
     def test_connection(self) -> Dict[str, Any]:
         """Testa la connessione Oracle con fallback multi-host"""
+        print(f"🔍 DEBUG: Verifica disponibilità modulo oracledb...")
         if not ORACLEDB_AVAILABLE:
+            print(f"❌ DEBUG: Modulo oracledb non disponibile!")
             return {
                 "success": False,
                 "error": "Modulo oracledb non disponibile",
                 "suggestion": "pip install oracledb"
             }
+        else:
+            print(f"✅ DEBUG: Modulo oracledb disponibile")
         
+        # Debug configurazione TNS
+        print(f"🔍 DEBUG: Verifica configurazione TNS...")
+        tns_admin = os.environ.get("TNS_ADMIN", "Non configurato")
+        print(f"🔍 DEBUG: TNS_ADMIN = {tns_admin}")
+        
+        if tns_admin != "Non configurato":
+            try:
+                tnsnames_path = Path(tns_admin) / "tnsnames.ora"
+                if tnsnames_path.exists():
+                    print(f"✅ DEBUG: File tnsnames.ora trovato: {tnsnames_path}")
+                    # Leggi e mostra contenuto del tnsnames.ora per debug
+                    try:
+                        with open(tnsnames_path, 'r') as f:
+                            content = f.read()
+                            print(f"🔍 DEBUG: Contenuto tnsnames.ora:")
+                            print(f"--- INIZIO TNSNAMES.ORA ---")
+                            print(content[:500] + "..." if len(content) > 500 else content)
+                            print(f"--- FINE TNSNAMES.ORA ---")
+                    except Exception as e:
+                        print(f"⚠️ DEBUG: Errore lettura tnsnames.ora: {e}")
+                else:
+                    print(f"❌ DEBUG: File tnsnames.ora non trovato: {tnsnames_path}")
+            except Exception as e:
+                print(f"⚠️ DEBUG: Errore accesso tnsnames.ora: {e}")
+        else:
+            print(f"⚠️ DEBUG: TNS_ADMIN non configurato")
+        
+        # Acquisizione credenziali diretta
         try:
-            # Import dinamico del credentials manager
-            import importlib.util
+            print("\n🔐 AUTENTICAZIONE DATABASE")
+            print("Servizio: PPORAFIN")
+            print("=" * 40)
+            
+            # Gestione encoding per Windows
             import sys
-            from pathlib import Path
             
-            # Percorso al modulo credentials_manager
-            cred_path = Path(__file__).parent / "credentials_manager.py"
+            username = input("👤 Username: ")
+            # Pulizia rigorosa dell'input
+            username = username.strip()
+            # Rimuovi caratteri non ASCII che potrebbero causare problemi
+            username = ''.join(char for char in username if ord(char) < 128)
             
-            # Carica il modulo
-            spec = importlib.util.spec_from_file_location("credentials_manager", cred_path)
-            cred_module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(cred_module)
+            print(f"🔍 DEBUG: Username pulito: '{username}' (lunghezza: {len(username)})")
             
-            # Ottieni le credenziali
-            credentials = cred_module.get_database_credentials("pporafin")
+            if not username:
+                return {
+                    "success": False,
+                    "error": "Username richiesto per connessione database"
+                }
+            
+            import getpass
+            try:
+                password = getpass.getpass("🔑 Password: ")
+            except:
+                # Fallback se getpass non funziona nell'eseguibile
+                password = input("🔑 Password: ")
+            
+            # Pulizia della password (ma mantieni caratteri speciali)
+            password = password.strip()
+            print(f"🔍 DEBUG: Password ricevuta (lunghezza: {len(password)})")
+            
+            if not password:
+                return {
+                    "success": False,
+                    "error": "Password richiesta per connessione database"
+                }
+            
+            credentials = (username, password)
+            print("✅ Credenziali acquisite")
         except Exception as e:
-            self.logger.error(f"Errore caricamento credentials manager: {e}")
+            self.logger.error(f"Errore acquisizione credenziali: {e}")
             return {
                 "success": False,
-                "error": f"Impossibile caricare credentials manager: {e}"
+                "error": f"Errore acquisizione credenziali: {e}"
             }
         
         if not credentials:
@@ -82,8 +169,12 @@ class DatabaseService:
         username, password = credentials
         last_error = None
         
+        print(f"🔍 DEBUG: Credenziali ottenute - Username: {username}")
+        print(f"🔍 DEBUG: Tentativo connessione con TNS alias: {self.tns_alias}")
+        
         # Test TNS
         try:
+            print(f"🔍 DEBUG: Provo connessione TNS...")
             connection = oracledb.connect(
                 user=username,
                 password=password,
@@ -91,6 +182,7 @@ class DatabaseService:
             )
             connection.close()
             self.successful_host = "TNS"
+            print(f"✅ DEBUG: Connessione TNS riuscita!")
             return {
                 "success": True,
                 "method": "TNS",
@@ -99,12 +191,15 @@ class DatabaseService:
             }
         except Exception as e:
             last_error = str(e)
+            print(f"❌ DEBUG: Connessione TNS fallita: {e}")
             self.logger.warning(f"Connessione TNS fallita: {e}")
         
+        print(f"🔍 DEBUG: Provo connessioni dirette ai server...")
         # Test connessioni dirette
         for host in self.fallback_hosts:
             try:
                 dsn = f"{host}:1521/OTH_ORAFIN.bsella.it"
+                print(f"🔍 DEBUG: Tentativo connessione diretta a {dsn}")
                 connection = oracledb.connect(
                     user=username,
                     password=password,
@@ -112,6 +207,7 @@ class DatabaseService:
                 )
                 connection.close()
                 self.successful_host = host
+                print(f"✅ DEBUG: Connessione diretta riuscita con {host}!")
                 return {
                     "success": True,
                     "method": "Direct",
@@ -121,6 +217,7 @@ class DatabaseService:
                 }
             except Exception as e:
                 last_error = str(e)
+                print(f"❌ DEBUG: Connessione fallita con {host}: {e}")
                 self.logger.warning(f"Connessione fallita con {host}: {e}")
                 continue
         
@@ -135,24 +232,45 @@ class DatabaseService:
         if not ORACLEDB_AVAILABLE:
             raise Exception("Modulo oracledb non disponibile")
         
+        # Acquisizione credenziali diretta
         try:
-            # Import dinamico del credentials manager
-            import importlib.util
-            from pathlib import Path
+            print("\n🔐 AUTENTICAZIONE DATABASE")
+            print("Servizio: PPORAFIN")
+            print("=" * 40)
             
-            # Percorso al modulo credentials_manager
-            cred_path = Path(__file__).parent / "credentials_manager.py"
+            # Gestione encoding per Windows
+            import sys
             
-            # Carica il modulo
-            spec = importlib.util.spec_from_file_location("credentials_manager", cred_path)
-            cred_module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(cred_module)
+            username = input("👤 Username: ")
+            # Pulizia rigorosa dell'input
+            username = username.strip()
+            # Rimuovi caratteri non ASCII che potrebbero causare problemi
+            username = ''.join(char for char in username if ord(char) < 128)
             
-            # Ottieni le credenziali
-            credentials = cred_module.get_database_credentials("pporafin")
+            print(f"🔍 DEBUG: Username pulito: '{username}' (lunghezza: {len(username)})")
+            
+            if not username:
+                raise Exception("Username richiesto per connessione database")
+            
+            import getpass
+            try:
+                password = getpass.getpass("🔑 Password: ")
+            except:
+                # Fallback se getpass non funziona nell'eseguibile
+                password = input("🔑 Password: ")
+            
+            # Pulizia della password (ma mantieni caratteri speciali)
+            password = password.strip()
+            print(f"🔍 DEBUG: Password ricevuta (lunghezza: {len(password)})")
+            
+            if not password:
+                raise Exception("Password richiesta per connessione database")
+            
+            credentials = (username, password)
+            print("✅ Credenziali acquisite")
         except Exception as e:
-            self.logger.error(f"Errore caricamento credentials manager: {e}")
-            raise Exception(f"Impossibile caricare credentials manager: {e}")
+            self.logger.error(f"Errore acquisizione credenziali: {e}")
+            raise Exception(f"Errore acquisizione credenziali: {e}")
         
         if not credentials:
             raise Exception("Credenziali Oracle non configurate")
