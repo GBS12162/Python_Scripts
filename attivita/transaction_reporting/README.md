@@ -1,44 +1,58 @@
-# CON-412 Transaction Reporting - Rejecting Mensile
+# CON-412 Transaction Reporting - Guida Utente
 
-Sistema di elaborazione automatica per la validazione ISIN tramite ESMA per l'attività CON-412 di Gruppo Banca Sella.
+## Descrizione
+Sistema automatico per la validazione e il reporting mensile degli ordini CON-412 tramite controlli ESMA e database Oracle. Il programma elabora file Excel, effettua controlli su ogni ordine e genera un file validato pronto per l'invio.
 
-## 🚀 Avvio Rapido
+## Requisiti
+- **Windows 10/11**
+- **Connessione Internet** (per validazione ESMA)
+- **File Excel CON-412** da elaborare
+- **Credenziali Oracle** (solo se richiesto per filtraggio database)
 
-### Metodo 1: Script Python
-```bash
-cd attivita\transaction_reporting
-py main_con412.py
-```
+## Installazione
+1. **Scarica la cartella** `CON412_TransactionReporting` fornita dal reparto IT.
+2. **Non serve installare Python**: l'eseguibile è già pronto all'uso.
+3. **Verifica la presenza di questi elementi:**
+   - `transaction_reporting_mensile.exe` (eseguibile per il reporting mensile)
+   - Cartella `oracle_config` (con file TNS, se serve database)
+   - Cartella `output` (verrà creata automaticamente)
+   - Cartella `log` (verrà creata automaticamente)
 
-### Metodo 2: File Batch (Windows)
-```bash
-cd attivita\transaction_reporting
-run_con412.bat
-```
+## Avvio del Programma
+1. **Doppio clic** su `transaction_reporting_mensile.exe`
+2. **Segui le istruzioni a schermo:**
+   - Inserisci il percorso completo del file Excel da validare (es: `C:\Downloads\CON-412_SETEMBRE.xlsx`)
+   - Inserisci le credenziali Oracle se richiesto (username/password)
 
-### 📖 Aiuto Configurazione
-Per esempi dettagliati su pattern file e configurazione SharePoint, consulta: **[GUIDA_RAPIDA.md](GUIDA_RAPIDA.md)**
+## Funzionalità Principali
+- **Lettura automatica** del file Excel CON-412
+- **Filtraggio ordini** tramite database Oracle (opzionale)
+- **4 Controlli ESMA sequenziali**:
+  1. ISIN censito (verifica presenza su database ESMA)
+  2. Trading Venue (validazione MIC code vs mercato)
+  3. Date Approval (verifica date di approvazione)
+  4. Maturity Date (controllo date di scadenza)
+- **Gestione errori**: log dettagliato e messaggi chiari in caso di problemi
+- **File output**: viene generato un file Excel validato nella cartella `output` con la struttura originale e le colonne di validazione
 
-## 📋 Funzionalità
+## Output
+- Il file validato viene salvato in `output/CON-412_[MESE]_Validated.xlsx`
+- Viene mantenuta la struttura originale del file
+- Vengono aggiunte colonne di validazione (X per controlli falliti)
 
-- **Download automatico** da SharePoint (CON-412_[MESE].xlsx)
-- **Lettura struttura** ISIN/OCCORRENCES dal file originale
-- **Validazione ISIN** tramite API ESMA per controlli di censura
-- **Aggiunta X** nella colonna "PRIMO CONTROLLO" solo per ISIN validati
-- **Mantenimento struttura** originale del file SharePoint
-- **Logging completo** con file di log dettagliati
+## FAQ e Risoluzione Problemi
+- **Errore database**: controlla le credenziali e la connessione di rete/VPN
+- **Errore ESMA/API**: verifica la connessione internet
+- **File non trovato**: assicurati che il percorso inserito sia corretto e che il file non sia aperto in Excel
+- **Per assistenza**: contatta il supporto IT fornendo il file di log generato nella cartella `log`
 
-## 🔄 Processo di Elaborazione
+## Note Finali
+- Puoi rinominare l’eseguibile come preferisci
+- I file di log e output vengono sovrascritti ad ogni esecuzione
+- Per aggiornamenti o nuove versioni, richiedi sempre la cartella completa dal reparto IT
 
-1. **Download**: Scarica CON-412_[MESE].xlsx da SharePoint
-2. **Lettura**: Analizza la struttura ISIN/OCCORRENCES esistente  
-3. **Validazione**: Controlla ogni ISIN tramite API ESMA
-4. **Marcatura**: Aggiunge "X" nella colonna controllo solo per ISIN censurati
-5. **Output**: Salva file con struttura originale + validazioni
-
-## 🔧 Configurazione
-
-Il sistema è configurato automaticamente per:
+---
+© 2025 Gruppo Banca Sella - Tutti i diritti riservati
 - Mese corrente di elaborazione
 - Directory di download e output
 - URL SharePoint e API ESMA
