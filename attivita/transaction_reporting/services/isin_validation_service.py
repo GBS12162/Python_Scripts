@@ -11,7 +11,7 @@ import time
 import os
 
 from models.transaction_reporting import ISINGroup, QualityControlResult
-from config.con412_config import ControlliConfig
+from config.transaction_reporting_mensile_config import ControlliConfig
 
 
 # Configura il percorso per il file di log

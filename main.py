@@ -12,7 +12,7 @@ from datetime import datetime
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from attivita.transaction_reporting.processor import CON412Processor
-from attivita.transaction_reporting.config.con412_config import config
+from attivita.transaction_reporting.config.transaction_reporting_mensile_config import config
 from utils.progress_utils import ProgressUtils
 
 
