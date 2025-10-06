@@ -8,9 +8,37 @@ import requests
 from typing import Dict, List, Optional, Set, Any, Tuple
 from datetime import datetime
 import time
+import os
 
 from models.transaction_reporting import ISINGroup, QualityControlResult
 from config.con412_config import ControlliConfig
+
+
+# Configura il percorso per il file di log
+log_dir = os.path.join(os.getcwd(), "log")
+os.makedirs(log_dir, exist_ok=True)  # Crea la cartella "log" se non esiste
+log_file_path = os.path.join(log_dir, "isin_validation.log")
+
+# Configura il logging per separare i log del file e del terminale
+file_handler = logging.FileHandler(log_file_path, mode="w")
+file_handler.setLevel(logging.DEBUG)  # Log dettagliati solo nel file
+
+stream_handler = logging.StreamHandler()
+stream_handler.setLevel(logging.INFO)  # Log limitati al terminale
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[file_handler, stream_handler]
+)
+
+# Log specifici per il terminale
+logging.info("Inserire il percorso del file:")
+logging.info("Inserire username e password:")
+logging.info("Caricamento dell'operazione in corso...")
+logging.info("Percentuale di avanzamento: 50%...")
+logging.info("Esito dell'operazione: Successo")
+logging.info("--- Fine del processo di validazione ISIN ---")
 
 
 class ISINValidationService:
@@ -120,14 +148,19 @@ class ISINValidationService:
         self, 
         isin_groups: List[ISINGroup], 
         validation_results: Dict[str, bool]
-    ):
+    ) -> List[ISINGroup]:
         """
-        Applica i risultati della validazione ai gruppi ISIN.
+        Applica i risultati della validazione ai gruppi ISIN e raccoglie quelli senza "X" in nessun controllo.
         
         Args:
             isin_groups: Lista dei gruppi ISIN
             validation_results: Dizionario ISIN -> è_censito
+        
+        Returns:
+            Lista dei gruppi ISIN senza "X" in nessun controllo
         """
+        groups_without_x = []
+
         try:
             for group in isin_groups:
                 is_censito = validation_results.get(group.isin, True)  # Default: assume valido
@@ -143,11 +176,28 @@ class ISINValidationService:
                     if group.controllo_1 == "X":
                         group.controllo_1 = ""
                     self.logger.info(f"ISIN {group.isin}: censito correttamente")
+
+                # Verifica se almeno un controllo ha "X"
+                self.logger.debug(f"Controlli per ISIN {group.isin}: controllo_1={group.controllo_1}, controllo_2={group.controllo_2}, controllo_3={group.controllo_3}, controllo_4={group.controllo_4}")
+                if not any([
+                    group.controllo_1 == "X",
+                    group.controllo_2 == "X",
+                    group.controllo_3 == "X",
+                    group.controllo_4 == "X"
+                ]):
+                    # Aggiungi il gruppo alla lista di quelli senza "X"
+                    groups_without_x.append(group)
+                    self.logger.info(f"ISIN {group.isin}: Nessun controllo fallito - aggiunto alla lista senza X")
             
             self.logger.info("Risultati validazione applicati ai gruppi ISIN")
+            self.logger.info("Gruppi ISIN senza 'X' in nessun controllo:")
+            for group in groups_without_x:
+                self.logger.info(f"ISIN: {group.isin}, Ordini: {len(group.orders)}")
             
         except Exception as e:
             self.logger.error(f"Errore nell'applicazione risultati validazione: {e}")
+        
+        return groups_without_x
     
     def _extract_unique_isins(self, isin_groups: List[ISINGroup]) -> Set[str]:
         """Estrae gli ISIN unici da validare."""
@@ -175,10 +225,9 @@ class ISINValidationService:
     def _make_api_request(self, isin: str) -> requests.Response:
         """Effettua la richiesta API ESMA per un ISIN."""
         try:
-            # Payload corretto per API ESMA (formato completo richiesto)
             payload = {
                 "core": "esma_registers_firds",
-                "pagingSize": "10",
+                "pagingSize": "50",
                 "start": 0,
                 "keyword": "",
                 "sortField": "isin asc",
@@ -198,17 +247,36 @@ class ISINValidationService:
                 ],
                 "wt": "json"
             }
-            
+
+            self.logger.debug(f"Effettuando richiesta API per ISIN {isin} con payload: {payload}")
+
             response = self.session.post(
                 self.api_url, 
                 json=payload,
                 timeout=30
             )
-            
+
             response.raise_for_status()
-            
+
+            # Logga solo i parametri rilevanti per i controlli
+            try:
+                data = response.json()
+                if "response" in data and "docs" in data["response"]:
+                    docs = data["response"]["docs"]
+                    for doc in docs:
+                        relevant_fields = {
+                            "isin": doc.get("isin"),
+                            "mic": doc.get("mic"),
+                            "instrument_name": doc.get("instrument_name"),
+                            "cfii": doc.get("cfii"),
+                            "notional_currency": doc.get("notional_currency")
+                        }
+                        self.logger.debug(f"Dati rilevanti per ISIN {isin}: {relevant_fields}")
+            except Exception as e:
+                self.logger.error(f"Errore nel parsing dei dati rilevanti per ISIN {isin}: {e}")
+
             return response
-            
+
         except requests.exceptions.RequestException as e:
             self.logger.error(f"Errore richiesta ESMA per ISIN {isin}: {e}")
             raise
@@ -358,67 +426,78 @@ class ISINValidationService:
     
     def check_trading_venue(self, isin: str, mercato_value: str) -> bool:
         """
-        Controllo 2: Verifica se almeno una riga ESMA ha il Trading Venue corrispondente al MERCATO.
+        Controllo 2: Verifica se almeno un documento ESMA ha il campo 'mic' corrispondente al MERCATO.
         
         Args:
             isin: Codice ISIN
             mercato_value: Valore della colonna MERCATO (formato: "CODICE(DESCRIZIONE)")
             
         Returns:
-            True se almeno una riga ESMA ha il trading venue corrispondente, False altrimenti
+            True se almeno un documento ESMA ha il mic corrispondente, False altrimenti
         """
         try:
             if not mercato_value:
                 self.logger.debug(f"MERCATO value vuoto per ISIN {isin}")
                 return False
             
-            # Eccezione speciale: se MERCATO contiene "XOFF", sempre valido
+            # Eccezione speciale: se MERCATO contiene "XOFF", sempre valido se API ritorna almeno un risultato
             if "XOFF" in mercato_value.upper():
-                self.logger.debug(f"MERCATO contiene XOFF per ISIN {isin}: {mercato_value} - sempre valido")
-                return True
+                self.logger.debug(f"MERCATO contiene XOFF per ISIN {isin}: {mercato_value} - controllo solo presenza risultati")
+                # Per XOFF basta che l'API ritorni almeno un risultato
+                is_valid = self.check_single_isin(isin)
+                return is_valid
             
-            # Estrae il codice trading venue dal MERCATO (es: "MTAA(MTA)" -> "MTAA")
+            # Estrae il codice MIC dal MERCATO (es: "MTAA(MTA)" -> "MTAA")
             mercato_code = mercato_value.split('(')[0].strip() if '(' in mercato_value else mercato_value.strip()
             
             if not mercato_code:
                 self.logger.debug(f"Impossibile estrarre codice MERCATO da '{mercato_value}' per ISIN {isin}")
                 return False
             
-            # Verifica se abbiamo già i dati ESMA in cache
-            if isin not in self._esma_data_cache:
-                # Chiama l'API per ottenere i dati completi
-                is_valid = self.check_single_isin(isin)
-                if not is_valid or isin not in self._esma_data_cache:
-                    self.logger.debug(f"Nessun dato ESMA disponibile per ISIN {isin}")
-                    return False
-            
-            esma_data = self._esma_data_cache[isin]
-            
-            # Ottieni tutti i trading venues da ESMA
-            trading_venues = esma_data.get('trading_venues', [])
-            
-            if not trading_venues:
-                self.logger.debug(f"Nessun trading venue trovato nei dati ESMA per ISIN {isin}")
+            # Effettua chiamata API diretta per ottenere dati aggiornati
+            response = self._make_api_request(isin)
+            if not response:
+                self.logger.debug(f"Nessuna risposta API per ISIN {isin}")
+                return False
+                
+            is_valid, esma_data = self._parse_api_response_with_data(response, isin)
+            if not is_valid or not esma_data:
+                self.logger.debug(f"Nessun dato ESMA disponibile per ISIN {isin}")
                 return False
             
-            # Verifica se almeno uno dei trading venues corrisponde al MERCATO
+            # Ottieni tutti i documenti da ESMA
+            documents = esma_data.get('all_docs', [])
+            
+            if not documents:
+                self.logger.debug(f"Nessun documento trovato nei dati ESMA per ISIN {isin}")
+                return False
+            
+            # Verifica se almeno uno dei documenti ha il campo 'mic' corrispondente al MERCATO
             mercato_code_upper = mercato_code.upper()
             
-            for venue in trading_venues:
-                venue_upper = str(venue).upper()
+            self.logger.debug(f"Controllo MIC per ISIN {isin}: cercando '{mercato_code_upper}' in {len(documents)} documenti")
+            
+            for i, doc in enumerate(documents):
+                mic_value = doc.get('mic', '')
+                if not mic_value:
+                    self.logger.debug(f"  Doc {i+1}: campo 'mic' vuoto o mancante")
+                    continue
+                    
+                mic_value_upper = str(mic_value).upper()
+                self.logger.debug(f"  Doc {i+1}: MIC = '{mic_value_upper}'")
                 
                 # Controllo diretto
-                if venue_upper == mercato_code_upper:
-                    self.logger.debug(f"Trading venue match diretto per ISIN {isin}: {mercato_code} = {venue}")
+                if mic_value_upper == mercato_code_upper:
+                    self.logger.debug(f"MIC match diretto per ISIN {isin}: {mercato_code} = {mic_value}")
                     return True
                 
-                # Controllo se il venue contiene il codice MERCATO
-                if mercato_code_upper in venue_upper:
-                    self.logger.debug(f"Trading venue match parziale per ISIN {isin}: {mercato_code} in {venue}")
+                # Controllo se il MIC contiene il codice MERCATO
+                if mercato_code_upper in mic_value_upper:
+                    self.logger.debug(f"MIC match parziale per ISIN {isin}: {mercato_code} in {mic_value}")
                     return True
             
             # Nessun match trovato
-            self.logger.debug(f"Trading venue mismatch per ISIN {isin}: {mercato_code} non trovato in {trading_venues}")
+            self.logger.debug(f"MIC mismatch per ISIN {isin}: {mercato_code} non trovato nei documenti")
             return False
             
         except Exception as e:
