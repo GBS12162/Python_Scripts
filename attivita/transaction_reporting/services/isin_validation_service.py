@@ -15,8 +15,8 @@ from config.transaction_reporting_mensile_config import ControlliConfig
 
 
 # Configura il percorso per il file di log
-log_dir = os.path.join(os.getcwd(), "log")
-os.makedirs(log_dir, exist_ok=True)  # Crea la cartella "log" se non esiste
+log_dir = os.path.join(os.getcwd(), "log_tr_mensile")
+os.makedirs(log_dir, exist_ok=True)  # Crea la cartella "log_tr_mensile" se non esiste
 log_file_path = os.path.join(log_dir, "isin_validation.log")
 
 # Configura il logging per separare i log del file e del terminale

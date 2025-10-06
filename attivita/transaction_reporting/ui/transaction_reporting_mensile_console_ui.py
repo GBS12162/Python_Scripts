@@ -200,7 +200,7 @@ class CON412ConsoleUI:
             
             config = ProcessingConfig(
                 input_folder=Path("downloads"),
-                output_folder=Path("output"),
+                output_folder=Path("output_tr_mensile"),
                 month=self.current_month
             )
             
@@ -361,7 +361,7 @@ class CON412ConsoleUI:
             
             config = ProcessingConfig(
                 input_folder=Path("downloads"),
-                output_folder=Path("output"),
+                output_folder=Path("output_tr_mensile"),
                 month=self.current_month or "UNKNOWN"
             )
             

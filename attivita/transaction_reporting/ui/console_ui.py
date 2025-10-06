@@ -110,7 +110,7 @@ class TransactionReportingUI:
             export_format = format_map.get(format_choice, 'excel')
             
             # Directory di output
-            default_output = "output"
+            default_output = "output_tr_mensile"
             output_dir = input(f"📂 Directory output [{default_output}]: ").strip()
             if not output_dir:
                 output_dir = default_output

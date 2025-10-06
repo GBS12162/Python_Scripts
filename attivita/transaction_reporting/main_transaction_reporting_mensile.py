@@ -156,9 +156,9 @@ class CON412Processor:
         """Configura il sistema di logging"""
         # Assicurati che tutti i percorsi siano relativi alla directory dello script
         base_dir = Path(__file__).parent
-        logs_dir = base_dir / "logs"
+        logs_dir = base_dir / "log_tr_mensile"
         work_dir = base_dir / "work"
-        output_dir = base_dir / "output"
+        output_dir = base_dir / "output_tr_mensile"
 
         # Aggiorna i percorsi relativi
         logs_dir.mkdir(exist_ok=True)
@@ -350,10 +350,10 @@ class CON412Processor:
             # Crea directory output accessibile per l'exe
             if hasattr(sys, '_MEIPASS'):
                 # Quando eseguito come exe, usa la directory dell'eseguibile
-                output_dir = Path(sys.executable).parent / "output"
+                output_dir = Path(sys.executable).parent / "output_tr_mensile"
             else:
                 # Quando eseguito come script Python
-                output_dir = Path(sys.argv[0]).parent / "output"
+                output_dir = Path(sys.argv[0]).parent / "output_tr_mensile"
             output_dir.mkdir(parents=True, exist_ok=True)
             
             # Usa il nome del file di input per il file di output

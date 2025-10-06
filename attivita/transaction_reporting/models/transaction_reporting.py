@@ -269,7 +269,7 @@ class MonthlyReportConfig:
     group_by_merchant: bool = False
     group_by_reason: bool = True
     export_format: str = "excel"  # excel, csv, pdf
-    output_directory: str = "output"
+    output_directory: str = "output_tr_mensile"
     filename_template: str = "transaction_report_{year}_{month:02d}"
     
     def get_period_start(self) -> datetime:
