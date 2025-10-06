@@ -18,7 +18,7 @@ from services.sharepoint_service import SharePointService
 from services.isin_processing_service import ISINProcessingService
 from services.report_export_service import ReportExportService
 from services.isin_validation_service import ISINValidationService
-from config.con412_config import CON412Config
+from config.transaction_reporting_mensile_config import CON412Config
 from utils.progress_utils import ProgressBar
 
 

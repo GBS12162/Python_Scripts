@@ -10,7 +10,7 @@ Sistema automatico per la validazione e il reporting mensile degli ordini CON-41
 - **Credenziali Oracle** (solo se richiesto per filtraggio database)
 
 ## Installazione
-1. **Scarica la cartella** `CON412_TransactionReporting` fornita dal reparto IT.
+1. **Scarica la cartella** `TransactionReporting_Mensile` fornita dal reparto IT.
 2. **Non serve installare Python**: l'eseguibile è già pronto all'uso.
 3. **Verifica la presenza di questi elementi:**
    - `transaction_reporting_mensile.exe` (eseguibile per il reporting mensile)
